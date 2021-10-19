@@ -2,6 +2,8 @@ const express = require('express'); // importer express
 const bodyParser = require('body-parser'); // importer le package bodyParser
 const mongoose = require('mongoose'); // importer le package mongoose
 
+const path = require('path'); // accéder au path du serveur 
+
 const sauceRoutes = require('./routes/sauce'); // importer le routeur sauce
 
 const userRoutes = require('./routes/user'); // importer le routeur user (données utilisateurs)
@@ -28,6 +30,10 @@ app.use((req, res, next) => {
 });
 
 app.use(bodyParser.json());
+
+// indiquer à Express qu'il faut gérer la ressource images de manière statique à chaque fois qu'elle reçoit une requête vers la route /images
+
+app.use('/images', express.static(path.join(__dirname, 'images')));
 
 // enregistrer le routeur pour toutes les demandes effectuées vers /api/sauces
 
