@@ -13,5 +13,6 @@ router.post('/', auth, multer, sauceCtrl.createSauce); // créer une sauce
 router.get('/:id', auth, sauceCtrl.getOneSauce); // récupérer une sauce en particulier
 router.put('/:id', auth, multer, sauceCtrl.modifySauce); // modifier une sauce existante
 router.delete('/:id', auth, sauceCtrl.deleteSauce); // supprimer une sauce existante
-//router.post('/:id/like', auth, sauceCtrl.likeDislike) // pouvoir like ou dislike 
+router.post('/:id/like', auth, sauceCtrl.likeDislike) // pouvoir like ou dislike une sauce existante
+
 module.exports = router; // exporter le routeur
