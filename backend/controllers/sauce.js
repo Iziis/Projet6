@@ -36,7 +36,7 @@ exports.createSauce = (req, res, next) => {
     // sauvegarder la sauce dans la base de données
 
     sauce.save()
-        .then(() => res.status(201).json({ message: 'Objet enregistré !'}))
+        .then(() => res.status(201).json({ message: 'Sauce enregistrée !'}))
         .catch(error => res.status(400).json({ error }));
 };
  
@@ -59,24 +59,49 @@ exports.getOneSauce = (req, res, next) => {
 // mettre à jour une sauce existante
 
 exports.modifySauce = (req, res, next) => {
+
+    // on créé un objet sauceObject et on regarde si req.file existe ou non
   
-    const sauceObject = req.file ? // on créé un objet sauceObject et on regarde si req.file existe ou non
+    let sauceObject = {};
+    
+    req.file ? 
   
-     // si req.file existe (l'utilisateur a mis à jour l'image), on traite la nouvelle image
+     // si oui (l'utilisateur a mis à jour l'image), on supprime l'ancienne image, et on traite la nouvelle
   
-      {
-        ...JSON.parse(req.body.sauce),
-        imageUrl: `${req.protocol}://${req.get('host')}/images/${req.file.filename}`
-      } 
+        (
+
+            Sauce.findOne({_id: req.params.id}) // récupérer la sauce à modifier
+
+                .then((sauce) => {
+     
+                    // puisque l'URL de l'image contient un segment /images/, on peut séparer le nom de fichier de l'image avec split()
   
-      // si req.file n'existe pas (l'utilisateur n'a pas mis à jour l'image) on traite juste l'objet entrant
+                    const filename = sauce.imageUrl.split('/images/')[1];
+  
+                    // supprimer l'ancienne image
+
+                    fs.unlinkSync(`images/${filename}`)
+                
+                }),
+
+                    // modifier la sauce et ajouter la nouvelle image
+
+                    sauceObject = {
+                        ...JSON.parse(req.body.sauce),
+                        imageUrl: `${req.protocol}://${req.get('host')}/images/${req.file.filename}`
+                    }
+
+        ) : ( // () : () équivaut à une structure if/else
       
-      : { ...req.body }; 
+          // si non (l'utilisateur n'a pas mis à jour l'image), on traite juste l'objet entrant
+          
+          sauceObject = { ...req.body } 
+        )
   
     Sauce.updateOne({ _id: req.params.id }, { ...sauceObject, _id: req.params.id })
-      .then(() => res.status(200).json({ message: 'Objet modifié !'}))
-      .catch(error => res.status(400).json({ error }));
-  };
+      .then(() => res.status(200).json({ message: 'Sauce modifiée !'}))
+      .catch(error => res.status(400).json({ error }))
+};
 
 // supprimer une sauce existante
 
@@ -86,22 +111,25 @@ exports.deleteSauce = (req, res, next) => {
   
     Sauce.findOne({ _id: req.params.id })
   
-      .then(sauce => {
+        .then(sauce => {
   
-        // puisque l'URL de l'image contient un segment /images/, on peut séparer le nom de fichier de l'image avec split()
+            // puisque l'URL de l'image contient un segment /images/, on peut séparer le nom de fichier de l'image avec split()
   
-        const filename = sauce.imageUrl.split('/images/')[1];
+            const filename = sauce.imageUrl.split('/images/')[1];
   
-        // supprimer une sauce et le fichier image qui lui est associé
+            // supprimer une sauce et le fichier image qui lui est associé
   
-        fs.unlink(`images/${filename}`, () => {
-          Sauce.deleteOne({ _id: req.params.id })
-            .then(() => res.status(200).json({ message: 'Objet supprimé !'}))
-            .catch(error => res.status(400).json({ error }));
-        });
-      })
+            fs.unlink(`images/${filename}`, () => {
+
+                Sauce.deleteOne({ _id: req.params.id })
+
+                    .then(() => res.status(200).json({ message: 'Sauce supprimée !'}))
+                    .catch(error => res.status(400).json({ error }));
+            });
+        })
+
       .catch(error => res.status(500).json({ error }));
-  };
+};
 
 // liker ou disliker une sauce 
 
@@ -167,13 +195,67 @@ exports.likeDislike = (req, res, next) => {
 
     }
 
-    /* si l'utilisateur veut annuler un like ou un dislike sur une sauce
+    // si l'utilisateur veut annuler un like ou un dislike sur une sauce
 
-    if (like === 0) { 
+    if (like === 0) {
+        
+        Sauce.findOne({_id: sauceId})
 
-       
-    } */
+            .then((sauce) => {
+
+                // Si il s'agit d'annuler un like
+
+                if (sauce.usersLiked.includes(userId)) { 
+
+                    Sauce.updateOne({_id: sauceId},
+                    
+                        {
+                            // On pull l'utilisateur à l'origine du like
+
+                            $pull: {
+                                usersLiked: userId
+                            },
+
+                            // On incrémente le compteur de like avec -1
+
+                            $inc: {
+                                likes: -1
+                            }, 
+                        })
+
+                            .then(() => res.status(200).json({ message: 'Like retiré !'}))
+                            .catch((error) => res.status(400).json({ error }))
+                }
+
+                // Si il s'agit d'annuler un dislike
+
+                if (sauce.usersDisliked.includes(userId)) {
+
+                    Sauce.updateOne({_id: sauceId}, 
+                
+                        {
+
+                            // On pull l'utilisateur à l'origine du dislike
+
+                            $pull: {
+                                usersDisliked: userId
+                            },
+
+                            // On incrémente le compteur de dislike avec -1
+
+                            $inc: {
+                                dislikes: -1
+                            }, 
+                        })
+
+                    .then(() => res.status(200).json({ message: 'Dislike retiré !'}))
+                    .catch((error) => res.status(400).json({ error }))
+                }
+            })
+            
+            .catch((error) => res.status(404).json({ error }))
+    }
 
 };
 
-  
+// faire attention à ne pas envoyer le contenu du dossier images sur github
